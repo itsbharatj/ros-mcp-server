@@ -166,7 +166,7 @@ This will have Claude running on Windows and the MCP server running on WSL. We a
       "command": "wsl",
       "args": [
         "-d", "Ubuntu-22.04",
-        "/home/youruser/.local/bin/uv",
+        "/home/<YOUR_USER>/.local/bin/uv",
         "--directory",
         "/<ABSOLUTE_PATH>/ros-mcp-server",
         "run",
