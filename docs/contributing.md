@@ -66,6 +66,71 @@ We use **Ruff** for both linting and formatting. CI requires:
 
 ---
 
+## Optional: Using Devcontainer
+
+The devcontainer gives us a stable testing platform with ROS2 humble pre-installed as well as an environment to test the MCP server in http transport. (stdio transport is not compatible with the devcontainer)
+
+1. Install [VSCode](https://code.visualstudio.com/) and the **Remote - Containers** extension.  
+2. Open the `ros-mcp-server` repository in VSCode.  
+3. When prompted, **reopen in container**.  
+   - The container includes ROS2 Humble, Python 3.10+, `ruff`, `pre-commit`, `uv`, and `git`.  
+   - The repository is mounted at `/root/workspace`.  
+   - **Note for GUI apps** (`turtlesim`, `rviz`, `Gazebo`): 
+     Ensure the container can access your host X server by running the following command once on the host:
+
+     <details>
+     <summary> Ubuntu host </summary>
+
+     ```bash
+     sudo apt install x11-xserver-utils   # if xhost is not installed
+     xhost +local:root                    # allow container user access
+     ```
+     </details>
+
+     <details>
+     <summary> Windows WSL2 host </summary>
+
+     ```bash
+     export DISPLAY=$(grep nameserver /etc/resolv.conf | awk '{print $2}'):0
+     export QT_X11_NO_MITSHM=1
+     xhost +local:root
+     ```
+     </details>
+     
+
+4. You can now control the Turtlesim robot following **Step-2** and **Step-4** from the [installation guide](installation.md).
+5. Initialize pre-commit hooks (optional but recommended):
+   ```bash
+   pre-commit install
+   pre-commit run --all-files
+   ```
+5. Check Python code formatting with `ruff`
+   ```bash
+   ruff check .
+   ruff format --check .
+   ```
+  <details>
+  <summary>SSH Agent Setup for Git (click to expand)</summary>
+
+  This should be run on the host side prior to building the devcontainer.
+  ```bash
+  # Start the SSH agent
+  eval "$(ssh-agent -s)"
+
+  # List keys currently loaded
+  ssh-add -l
+  ```
+
+  If it says “The agent has no identities”, you must load your key, for example:
+  ```bash
+  ssh-add ~/.ssh/id_ed25519
+  ssh-add -l   # confirm fingerprint shows up
+  ```
+  </details>
+  
+   **Note:** This setup has been tested and verified on Ubuntu.
+
+
 ## License
 
 This project is licensed under the **Apache License 2.0**. By contributing to this project, you agree that your contributions will be licensed under the same license.
