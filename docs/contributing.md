@@ -16,13 +16,13 @@
 
 1. **Fork the repository:** Click the "Fork" button in the top right corner of the GitHub page.
 
-2. **Create a new branch:**  Create a separate branch for your changes to keep them isolated from the main project.
+2. **Create a new branch:** Create a separate branch for your changes to keep them isolated from the main project.
 
    ```bash
    git checkout -b "your_branch_name"
    ```
 
-3. **Make your changes:** Edit files with your additions or corrections.  Please follow the existing format and style.  When adding a new function, make sure to include:
+3. **Make your changes:** Edit files with your additions or corrections. Please follow the existing format and style guidelines. When adding a new function, make sure to include:
 
     * The function name and format.
     * A brief description of the function's functionality.
@@ -68,7 +68,7 @@ We use **Ruff** for both linting and formatting. CI requires:
 
 ## Optional: Using Devcontainer
 
-The devcontainer gives us a stable testing platform with ROS2 humble pre-installed as well as an environment to test the MCP server in http transport. (stdio transport is not compatible with the devcontainer)
+The devcontainer provides a stable testing platform with ROS2 humble pre-installed as well as an environment to test the MCP server in http transport. (stdio transport is not compatible with the devcontainer)
 
 1. Install [VSCode](https://code.visualstudio.com/) and the **Remote - Containers** extension.  
 2. Open the `ros-mcp-server` repository in VSCode.  
@@ -104,7 +104,7 @@ The devcontainer gives us a stable testing platform with ROS2 humble pre-install
    pre-commit install
    pre-commit run --all-files
    ```
-5. Check Python code formatting with `ruff`
+6. Check Python code formatting with `ruff`
    ```bash
    ruff check .
    ruff format --check .

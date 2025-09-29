@@ -6,8 +6,8 @@ Installation includes the following steps:
 - Install the MCP server
   - Clone this repository
   - Install uv (Python virtual environment manager)
-- Install and configure the Language model client
-  - Install any language model client (We demo with Claude Desktop)
+- Install and configure the Language Model Client
+  - Install any language model client (We demonstrate with Claude Desktop)
   - Configure the client to run the MCP server and connect automatically on launch.
 - Install and launch Rosbridge
 
@@ -61,7 +61,7 @@ Any LLM client that supports MCP can be used. We use **Claude Desktop** for test
 <details>
 <summary><strong>Linux (Ubuntu)</strong></summary>
 
-- Follow the installation instruction from the community-supported [claude-desktop-debian](https://github.com/aaddrick/claude-desktop-debian)
+- Follow the installation instructions from the community-supported [claude-desktop-debian](https://github.com/aaddrick/claude-desktop-debian)
 
 </details>
 
@@ -75,7 +75,7 @@ Any LLM client that supports MCP can be used. We use **Claude Desktop** for test
 <details>
 <summary><strong>Windows (Using WSL)</strong></summary>
 
-This will have Claude running on Windows and the MCP server running on WSL. We assume that you had cloned the repository and installed UV on your [WSL](https://apps.microsoft.com/detail/9pn20msr04dw?hl=en-US&gl=US) 
+This will have Claude running on Windows and the MCP server running on WSL. We assume that you have cloned the repository and installed UV on your [WSL](https://apps.microsoft.com/detail/9pn20msr04dw?hl=en-US&gl=US) 
 
 - Download from [claude.ai](https://claude.ai/download)
 
@@ -281,12 +281,6 @@ sudo apt install ros-${ROS_DISTRO}-rosbridge-server
 ```
 </details>
 
-```bash
-sudo apt install ros-humble-rosbridge-server
-```
-
-
-
 ## 3.2. Launch rosbridge in your ROS environment:
 
 
@@ -334,9 +328,9 @@ ros2 launch rosbridge_server rosbridge_websocket_launch.xml
 
 
 # 4. You're ready to go!
-You can test out your server with any robot that you have running. Just tell your AI to connect to the robot on its target IP. (Default is localhost, so you don't need to tell it to connect if the MCP server is installed on the same machine as your ROS)
+You can test out your server with any robot that you have running. Just tell your AI to connect to the robot using its target IP address. (Default is localhost, so you don't need to tell it to connect if the MCP server is installed on the same machine as your ROS)
 
-✅ **Tip:** If you don't currently have any robots running, turtlesim is considered the hello-ROS robot to experiment with. It does not have any simulation depenencies such as Gazebo or IsaacSim. 
+✅ **Tip:** If you don't currently have any robots running, turtlesim is considered the 'hello world' robot for ROS to experiment with. It does not have any simulation dependencies such as Gazebo or IsaacSim. 
 
 For a complete step-by-step tutorial on using turtlesim with the MCP server and for more information on ROS and turtlesim, see our [Turtlesim Tutorial](../examples/1_turtlesim/README.md).
 
