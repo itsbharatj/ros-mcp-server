@@ -1,16 +1,15 @@
 [project]
 name = "ros-mcp"
-version = "2.1.2"
+version = "2.1.3"
 description = "Connect AI Language Models with Robots on ROS using MCP"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "Apache 2.0" }
+license = "Apache-2.0"
 authors = [
     { name = "Rohit John Varghese"},
     { name = "Jungsoo Lee"},
     { name = "Youngmok Yun"},
     { name = "Stefano Dalla Gasperina"}
-
 ]
 
 
@@ -33,11 +32,13 @@ dev = [
 ros-mcp = "server:main"
 
 [build-system]
-requires = ["setuptools>=45", "wheel"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 include-package-data = true
+py-modules = ["server"]
+packages = ["utils", "config"]
 
 [tool.setuptools.data-files]
 "." = ["server.json"]
