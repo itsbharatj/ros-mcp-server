@@ -376,3 +376,170 @@ What topics and services do you see on the robot?
 </p>
 
 </details>
+
+---
+
+# 5. Alternate Clients (ChatGPT, Gemini, Cursor)
+
+<details>
+<summary><strong> Examples and setup instructions for other LLMs</strong></summary>
+
+#### 3.2.1. Cursor IDE
+For detailed Cursor setup instructions, see our [Cursor Tutorial](../examples/7_cursor/README.md).
+
+#### 3.2.2. ChatGPT
+For detailed ChatGPT setup instructions, see our [ChatGPT Tutorial](../examples/6_chatgpt/README.md).
+
+#### 3.2.3. Google Gemini
+For detailed Gemini setup instructions, see our [Gemini Tutorial](../examples/2_gemini/README.md).
+
+<details>
+<summary><strong>Custom MCP Client</strong></summary>
+
+#### 3.2.1. Using the MCP Server Programmatically
+You can also use the MCP server directly in your Python code:
+
+```python
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+async def main():
+    server_params = StdioServerParameters(
+        command="uv",
+        args=["--directory", "/path/to/ros-mcp-server", "run", "server.py"]
+    )
+    
+    async with stdio_client(server_params) as (read, write):
+        async with ClientSession(read, write) as session:
+            # Use the MCP server
+            result = await session.call_tool("get_topics", {})
+            print(result)
+```
+
+</details>
+
+</details>
+
+
+---
+
+# 6. Troubleshooting
+
+## 6.1. Common Issues
+
+<details>
+<summary><strong>MCP Server Not Appearing in Client</strong></summary>
+
+**Symptoms**: The ros-mcp-server doesn't appear in your LLM client's tool list.
+
+**Solutions**:
+1. **Check file paths**: Ensure all paths in your configuration are absolute and correct
+2. **Restart client**: Completely shut down and restart your LLM client
+3. **Check logs**: Look for error messages in your LLM client's logs
+4. **Test manually**: Try running the MCP server manually to check for errors:
+
+```bash
+cd /<ABSOLUTE_PATH>/ros-mcp-server
+uv run server.py
+```
+
+</details>
+
+<details>
+<summary><strong>Connection Refused Errors</strong></summary>
+
+**Symptoms**: "Connection refused" or "No valid session ID provided" errors.
+
+**Solutions**:
+1. **Check ROS is running**: Ensure ROS and rosbridge are running
+2. **Verify rosbridge port**: Default is 9090, check if it's different
+3. **Test connectivity**: Use the ping tool to test connection:
+
+```bash
+# Test if rosbridge is accessible
+curl -I http://localhost:9090
+```
+
+4. **Check firewall**: Ensure firewall allows the rosbridge port
+
+</details>
+
+<details>
+<summary><strong>WSL-Specific Issues</strong></summary>
+
+**Symptoms**: Issues when running on Windows with WSL.
+
+**Solutions**:
+1. **Check WSL distribution**: Ensure you're using the correct WSL distribution name
+2. **Verify uv path**: Check that the uv path in WSL is correct:
+
+```bash
+# In WSL
+which uv
+```
+
+3. **Test WSL connectivity**: Ensure Windows can reach WSL services
+4. **Check WSL networking**: For HTTP transport, use `0.0.0.0` instead of `127.0.0.1`
+
+</details>
+
+<details>
+<summary><strong>HTTP Transport Issues</strong></summary>
+
+**Symptoms**: HTTP transport not working or connection timeouts.
+
+**Solutions**:
+1. **Check environment variables**: Ensure MCP_TRANSPORT, MCP_HOST, and MCP_PORT are set correctly
+2. **Verify port availability**: Check if the port is already in use:
+
+```bash
+# Check if port is in use
+netstat -tulpn | grep :9000
+```
+
+3. **Test HTTP endpoint**: Try accessing the HTTP endpoint directly:
+
+```bash
+curl http://localhost:9000
+```
+
+4. **Check firewall**: Ensure firewall allows the configured port
+
+</details>
+
+## 6.2. Debug Commands
+
+```bash
+# Test ROS connectivity
+ros2 topic list  # For ROS 2
+rostopic list   # For ROS 1
+
+# Test rosbridge
+curl -I http://localhost:9090
+
+# Test MCP server manually
+cd /<ABSOLUTE_PATH>/ros-mcp-server
+uv run server.py
+
+# Check processes
+ps aux | grep rosbridge
+ps aux | grep ros-mcp
+```
+
+## 6.3. Getting Help
+
+<details>
+<summary><strong>If you're still having issues:</strong></summary>
+
+
+1. **Check the logs**: Look for error messages in your LLM client and MCP server logs
+2. **Test with turtlesim**: Try the [turtlesim tutorial](../examples/1_turtlesim/README.md) to verify basic functionality
+3. **Open an issue**: Create an issue on the [GitHub repository](https://github.com/robotmcp/ros-mcp-server/issues) with:
+   - Your operating system
+   - ROS version
+   - LLM client being used
+   - Error messages
+   - Steps to reproduce
+
+</details>
+---
