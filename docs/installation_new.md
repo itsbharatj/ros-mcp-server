@@ -55,13 +55,37 @@ pip install uv
 
 Any LLM client that supports MCP can be used. We use **Claude Desktop** for testing and development.
 
+
+
+## 2.1. Download Claude Desktop 
 <details>
 <summary><strong>Linux (Ubuntu)</strong></summary>
 
-## 2.1. Download Claude Desktop 
 - Follow the installation instruction from the community-supported [claude-desktop-debian](https://github.com/aaddrick/claude-desktop-debian)
 
+</details>
+
+<details>
+<summary><strong>MacOS</strong></summary>
+
+- Download from [claude.ai](https://claude.ai/download)
+
+</details>
+
+<details>
+<summary><strong>Windows (Using WSL)</strong></summary>
+
+This will have Claude running on Windows and the MCP server running on WSL. We assume that you had cloned the repository and installed UV on your [WSL](https://apps.microsoft.com/detail/9pn20msr04dw?hl=en-US&gl=US) 
+
+- Download from [claude.ai](https://claude.ai/download)
+
+</details>
+
+
 ## 2.2. Configure Claude Desktop to launch the MCP server
+<details>
+<summary><strong>Linux (Ubuntu)</strong></summary>
+
 - Locate and edit the `claude_desktop_config.json` file:
 - (If the file does not exist, create it)
 ```bash
@@ -87,35 +111,12 @@ Any LLM client that supports MCP can be used. We use **Claude Desktop** for test
 }
 ```
 
-## 2.3. Test the connection
-- Launch Claude Desktop and check connection status. 
-- The ros-mcp-server should be visible in your list of tools.
-
-<p align="center">
-  <img src="https://github.com/robotmcp/ros-mcp-server/blob/main/docs/images/connected_mcp.png" width="500"/>
-</p>
-
-## 2.4. Troubleshooting
-- If the `ros-mcp-server` doesn't appear even after correctly configuring `claude_desktop_config.json`, try completely shutting down Claude Desktop using the commands below and then restarting it. This could be a Claude Desktop caching issue.
-```bash
-# Completely terminate Claude Desktop processes
-pkill -f claude-desktop
-# Or alternatively
-killall claude-desktop
-
-# Restart Claude Desktop
-claude-desktop
-```
-
 </details>
+
 
 <details>
 <summary><strong>MacOS</strong></summary>
 
-## 2.1. Download Claude Desktop 
-- Download from [claude.ai](https://claude.ai/download)
-
-## 2.2. Configure Claude Desktop to launch the MCP server
 - Locate and edit the `claude_desktop_config.json` file:
 - (If the file does not exist, create it)
 ```bash
@@ -141,26 +142,12 @@ claude-desktop
 }
 ```
 
-## 2.3. Test the connection
-- Launch Claude Desktop and check connection status. 
-- The ros-mcp-server should be visible in your list of tools.
-
-<p align="center">
-  <img src="https://github.com/robotmcp/ros-mcp-server/blob/main/docs/images/connected_mcp.png" width="500"/>
-</p>
-
 </details>
+
 
 <details>
 <summary><strong>Windows (Using WSL)</strong></summary>
 
-
-## 2.1. Download Claude Desktop 
-This will have Claude running on Windows and the MCP server running on WSL. We assume that you had cloned the repository and installed UV on your [WSL](https://apps.microsoft.com/detail/9pn20msr04dw?hl=en-US&gl=US) 
-
-- Download from [claude.ai](https://claude.ai/download)
-
-## 2.2. Configure Claude Desktop to launch the MCP server
 - Locate and edit the `claude_desktop_config.json` file:
 - (If the file does not exist, create it)
 ```bash
@@ -190,6 +177,62 @@ This will have Claude running on Windows and the MCP server running on WSL. We a
 }
 ```
 
+</details>
+
+---
+
+<details>
+<summary><strong> Alternate Configuration - HTTP Transport</strong></summary>
+
+The above configurations sets up the MCP server using the default STDIO transport layer, which launches the server as a plugin automatically on launching Claude. 
+
+It is also possible to configure the MCP server using the http transport layer, which configures Claude to connect to the MCP server when it is launched as a standalone application. 
+
+For HTTP transport, the configuration is the same across all platforms. First start the MCP server manually:
+
+**Linux/macOS/Windows(WSL):**
+```bash
+cd /<ABSOLUTE_PATH>/ros-mcp-server
+export MCP_TRANSPORT=streamable-http
+export MCP_HOST=127.0.0.1
+export MCP_PORT=9000
+uv run server.py
+```
+
+Then configure Claude Desktop to connect to the HTTP server (same for all platforms):
+
+```json
+{
+  "mcpServers": {
+    "ros-mcp-server-http": {
+      "name": "ROS-MCP Server (http)",
+      "transport": "http",
+      "url": "http://127.0.0.1:9000/mcp"
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary> Comparison between default (STDIO) and HTTP Transport</summary>
+
+#### STDIO Transport (Default)
+- **Best for**: Local development, single-user setups
+- **Pros**: Simple setup, no network configuration needed
+- **Cons**: MCP server and LLM/MCP client need to be running on the local machine.
+- **Use case**: Running MCP server directly with your LLM client
+
+#### HTTP/Streamable-HTTP Transport
+- **Best for**: Remote access, multiple clients, production deployments
+- **Pros**: Network accessible, multiple clients can connect
+- **Cons**: Requires network configuration, MCP server needs to be run independently.
+- **Use case**: Remote robots, team environments, web-based clients
+
+</details>
+
+
 ## 2.3. Test the connection
 - Launch Claude Desktop and check connection status. 
 - The ros-mcp-server should be visible in your list of tools.
@@ -198,7 +241,23 @@ This will have Claude running on Windows and the MCP server running on WSL. We a
   <img src="https://github.com/robotmcp/ros-mcp-server/blob/main/docs/images/connected_mcp.png" width="500"/>
 </p>
 
+<details>
+<summary><strong> Troubleshooting </strong></summary>
+
+- If the `ros-mcp-server` doesn't appear even after correctly configuring `claude_desktop_config.json`, try completely shutting down Claude Desktop using the commands below and then restarting it. This could be a Claude Desktop caching issue.
+```bash
+# Completely terminate Claude Desktop processes
+pkill -f claude-desktop
+# Or alternatively
+killall claude-desktop
+
+# Restart Claude Desktop
+claude-desktop
+```
+
 </details>
+
+
 ---
 
 # 3. Install and run rosbridge (On the target robot where ROS will be running)
