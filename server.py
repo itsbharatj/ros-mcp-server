@@ -558,9 +558,22 @@ def subscribe_once(
             if response is None:
                 continue  # idle timeout: no frame this tick
 
-            if "Image" in msg_type:
-                msg_data = parse_image(response)
-            else:
+            # Try to detect if this is an image message by checking the content
+            try:
+                # Parse response to a Python dictionary
+                temp_parsed = json.loads(response) if isinstance(response, str) else response
+                # Check if the response is a publish message
+                if isinstance(temp_parsed, dict) and temp_parsed.get("op") == "publish":
+                    msg_content = temp_parsed.get("msg", {})
+                    # Check if message contains image data (base64 data field)
+                    if isinstance(msg_content, dict) and "data" in msg_content:
+                        # If it does, parse the image
+                        msg_data = parse_image(response)
+                    else:
+                        msg_data = parse_json(response)
+                else:
+                    msg_data = parse_json(response)
+            except (json.JSONDecodeError, TypeError, AttributeError):
                 msg_data = parse_json(response)
 
             if not msg_data:
@@ -575,7 +588,8 @@ def subscribe_once(
                 # Unsubscribe before returning the message
                 unsubscribe_msg = {"op": "unsubscribe", "topic": topic}
                 ws_manager.send(unsubscribe_msg)
-                if "Image" in msg_type:
+                # Check if this was an image message by seeing if parse_image was used
+                if msg_data and isinstance(msg_data, dict) and "data" in msg_data.get("msg", {}):
                     return {
                         "message": "Image received successfully and saved in the MCP server. Run the 'analyze_previously_received_image' tool to analyze it"
                     }
@@ -741,7 +755,24 @@ def subscribe_for_duration(
             if response is None:
                 continue  # idle timeout: no frame this tick
 
-            msg_data = parse_json(response)
+            # Try to detect if this is an image message by checking the content
+            try:
+                # Parse response to a Python dictionary
+                temp_parsed = json.loads(response) if isinstance(response, str) else response
+                # Check if the response is a publish message
+                if isinstance(temp_parsed, dict) and temp_parsed.get("op") == "publish":
+                    msg_content = temp_parsed.get("msg", {})
+                    # Check if message contains image data (base64 data field)
+                    if isinstance(msg_content, dict) and "data" in msg_content:
+                        # If it does, parse the image
+                        msg_data = parse_image(response)
+                    else:
+                        msg_data = parse_json(response)
+                else:
+                    msg_data = parse_json(response)
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                msg_data = parse_json(response)
+
             if not msg_data:
                 continue  # non-JSON or empty
 
@@ -752,7 +783,16 @@ def subscribe_for_duration(
 
             # Check for published messages matching our topic
             if msg_data.get("op") == "publish" and msg_data.get("topic") == topic:
-                collected_messages.append(msg_data.get("msg", {}))
+                # Check if this was an image message
+                if isinstance(msg_data.get("msg"), dict) and "data" in msg_data.get("msg", {}):
+                    collected_messages.append(
+                        {
+                            "image_message": "Image received and saved. Use 'analyze_previously_received_image' to analyze it.",
+                            "msg": msg_data.get("msg", {}),
+                        }
+                    )
+                else:
+                    collected_messages.append(msg_data.get("msg", {}))
 
         # Unsubscribe when done
         unsubscribe_msg = {"op": "unsubscribe", "topic": topic}
@@ -2022,8 +2062,12 @@ def _encode_image_to_imagecontent(image):
 
 @mcp.tool(
     description=(
-        "First, subscribe to an Image topic using 'subscribe_once' to save an image.\n"
-        "Then, use this tool to analyze the saved image\n"
+        "Analyze a previously received image that was saved by any ROS operation.\n"
+        "Images can be received from:\n"
+        "- Any topic containing image data (not just topics with 'Image' in the name)\n"
+        "- Service responses containing image data\n"
+        "- subscribe_once() or subscribe_for_duration() operations\n"
+        "Use this tool to analyze the saved image after receiving it from any source.\n"
     )
 )
 def analyze_previously_received_image():
@@ -2031,8 +2075,13 @@ def analyze_previously_received_image():
     Analyze the previously received image saved at ./camera/received_image.jpeg
 
     This tool loads the previously saved image from './camera/received_image.jpeg'
-    (which must have been created by 'parse_image' or 'subscribe_once'), and converts
+    (which can be created by any ROS operation that receives image data), and converts
     it into an MCP-compatible ImageContent format so that the LLM can interpret it.
+
+    Images can be received from:
+    - Any Topic containing image data
+    - Any Service responses containing image data
+    - subscribe_once() or subscribe_for_duration() operations
     """
     path = "./camera/received_image.jpeg"
     if not os.path.exists(path):
