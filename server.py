@@ -3,7 +3,7 @@ import io
 import json
 import os
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Union
 
 from fastmcp import FastMCP
 from fastmcp.utilities.types import Image
@@ -79,8 +79,8 @@ def list_verified_robot_specifications() -> dict:
     )
 )
 def connect_to_robot(
-    ip: Optional[str] = None,
-    port: Optional[Union[int, str]] = None,
+    ip: str = ROSBRIDGE_IP,
+    port: Union[int, str] = ROSBRIDGE_PORT,
     ping_timeout: float = 2.0,
     port_timeout: float = 2.0,
 ) -> dict:
@@ -88,8 +88,8 @@ def connect_to_robot(
     Connect to a robot by setting the IP and port for the WebSocket connection, then testing connectivity.
 
     Args:
-        ip (Optional[str]): The IP address of the rosbridge server. Defaults to "127.0.0.1" (localhost).
-        port (Optional[int]): The port number of the rosbridge server. Defaults to 9090.
+        ip (str): The IP address of the rosbridge server. Defaults to "127.0.0.1" (localhost).
+        port (int): The port number of the rosbridge server. Defaults to 9090.
         ping_timeout (float): Timeout for ping in seconds. Default = 2.0.
         port_timeout (float): Timeout for port check in seconds. Default = 2.0.
 
@@ -97,8 +97,8 @@ def connect_to_robot(
         dict: Connection status with ping and port check results.
     """
     # Set default values if None
-    actual_ip = ip if ip is not None else "127.0.0.1"
-    actual_port = int(port) if port is not None else 9090
+    actual_ip = str(ip).strip() if ip else ROSBRIDGE_IP
+    actual_port = int(port) if port else ROSBRIDGE_PORT
 
     # Set the IP and port
     ws_manager.set_ip(actual_ip, actual_port)
@@ -495,9 +495,9 @@ def inspect_all_topics() -> dict:
 def subscribe_once(
     topic: str = "",
     msg_type: str = "",
-    timeout: Optional[float] = None,
-    queue_length: Optional[int] = None,
-    throttle_rate_ms: Optional[int] = None,
+    timeout: float | None = None,
+    queue_length: int | None = None,
+    throttle_rate_ms: int | None = None,
 ) -> dict:
     """
     Subscribe to a given ROS topic via rosbridge and return the first message received.
@@ -505,9 +505,9 @@ def subscribe_once(
     Args:
         topic (str): The ROS topic name (e.g., "/cmd_vel", "/joint_states").
         msg_type (str): The ROS message type (e.g., "geometry_msgs/Twist").
-        timeout (Optional[float]): Timeout in seconds. If None, uses the default timeout.
-        queue_length (Optional[int]): How many messages to buffer before dropping old ones. Must be ≥ 1.
-        throttle_rate_ms (Optional[int]): Minimum interval between messages in milliseconds. Must be ≥ 0.
+        timeout (float | None): Timeout in seconds. If None, uses the default timeout.
+        queue_length (int | None): How many messages to buffer before dropping old ones. Must be ≥ 1.
+        throttle_rate_ms (int | None): Minimum interval between messages in milliseconds. Must be ≥ 0.
 
     Returns:
         dict:
@@ -677,8 +677,8 @@ def subscribe_for_duration(
     msg_type: str = "",
     duration: float = 5.0,
     max_messages: int = 100,
-    queue_length: Optional[int] = None,
-    throttle_rate_ms: Optional[int] = None,
+    queue_length: int | None = None,
+    throttle_rate_ms: int | None = None,
 ) -> dict:
     """
     Subscribe to a ROS topic via rosbridge for a fixed duration and collect messages.
@@ -688,8 +688,8 @@ def subscribe_for_duration(
         msg_type (str): ROS message type (e.g. "geometry_msgs/Twist")
         duration (float): How long (seconds) to listen for messages
         max_messages (int): Maximum number of messages to collect before stopping
-        queue_length (Optional[int]): How many messages to buffer before dropping old ones. Must be ≥ 1.
-        throttle_rate_ms (Optional[int]): Minimum interval between messages in milliseconds. Must be ≥ 0.
+        queue_length (int | None): How many messages to buffer before dropping old ones. Must be ≥ 1.
+        throttle_rate_ms (int | None): Minimum interval between messages in milliseconds. Must be ≥ 0.
 
     Returns:
         dict:
@@ -1202,7 +1202,7 @@ def inspect_all_services() -> dict:
     )
 )
 def call_service(
-    service_name: str, service_type: str, request: dict, timeout: Optional[float] = None
+    service_name: str, service_type: str, request: dict, timeout: float | None = None
 ) -> dict:
     """
     Call a ROS service with specified request data.
@@ -1211,7 +1211,7 @@ def call_service(
         service_name (str): The service name (e.g., '/rosapi/topics')
         service_type (str): The service type (e.g., 'rosapi/Topics')
         request (dict): Service request data as a dictionary
-        timeout (Optional[float]): Timeout in seconds. If None, uses the default timeout.
+        timeout (float | None): Timeout in seconds. If None, uses the default timeout.
 
     Returns:
         dict: Contains the service response or error information.
@@ -1310,6 +1310,501 @@ def get_nodes() -> dict:
         return {"nodes": nodes, "node_count": len(nodes)}
     else:
         return {"warning": "No nodes found"}
+
+
+@mcp.tool(
+    description=(
+        "Get a single ROS parameter value by name. Works only with ROS 2.\nExample:\nget_param('/turtlesim:background_b')"
+    )
+)
+def get_parameter(name: str) -> dict:
+    """
+    Get a single ROS parameter value by name. Works only with ROS 2.
+
+    Args:
+        name (str): The parameter name (e.g., '/turtlesim:background_b')
+
+    Returns:
+        dict: Contains parameter value and metadata, or error message if parameter not found.
+    """
+    if not name or not name.strip():
+        return {"error": "Parameter name cannot be empty"}
+
+    message = {
+        "op": "call_service",
+        "service": "/rosapi/get_param",
+        "type": "rosapi/GetParam",
+        "args": {"name": name},
+        "id": f"get_param_{name.replace('/', '_').replace(':', '_')}",
+    }
+
+    with ws_manager:
+        response = ws_manager.request(message)
+
+    if response and "values" in response:
+        result_data = response["values"]
+        return {
+            "name": name,
+            "value": result_data.get("value", ""),
+            "successful": result_data.get("successful", False),
+            "reason": result_data.get("reason", ""),
+        }
+    elif response and "result" in response and response["result"]:
+        result_data = response["result"]
+        return {
+            "name": name,
+            "value": result_data.get("value", ""),
+            "successful": result_data.get("successful", False),
+            "reason": result_data.get("reason", ""),
+        }
+    else:
+        error_msg = (
+            response.get("values", {}).get("message", "Service call failed")
+            if response
+            else "No response"
+        )
+        return {"error": f"Failed to get parameter {name}: {error_msg}"}
+
+
+@mcp.tool(
+    description=(
+        "Set a single ROS parameter value. Works only with ROS 2.\nExample:\nset_param('/turtlesim:background_b', '255')"
+    )
+)
+def set_parameter(name: str, value: str) -> dict:
+    """
+    Set a single ROS parameter value. Works only with ROS 2.
+
+    Args:
+        name (str): The parameter name (e.g., '/turtlesim:background_b')
+        value (str): The parameter value to set
+
+    Returns:
+        dict: Contains success status and metadata, or error message if failed.
+    """
+    if not name or not name.strip():
+        return {"error": "Parameter name cannot be empty"}
+
+    message = {
+        "op": "call_service",
+        "service": "/rosapi/set_param",
+        "type": "rosapi/SetParam",
+        "args": {"name": name, "value": value},
+        "id": f"set_param_{name.replace('/', '_').replace(':', '_')}",
+    }
+
+    with ws_manager:
+        response = ws_manager.request(message)
+
+    if response and "values" in response:
+        result_data = response["values"]
+        return {
+            "name": name,
+            "value": value,
+            "successful": result_data.get("successful", False),
+            "reason": result_data.get("reason", ""),
+        }
+    elif response and "result" in response and response["result"]:
+        result_data = response["result"]
+        return {
+            "name": name,
+            "value": value,
+            "successful": result_data.get("successful", False),
+            "reason": result_data.get("reason", ""),
+        }
+    else:
+        error_msg = (
+            response.get("values", {}).get("message", "Service call failed")
+            if response
+            else "No response"
+        )
+        return {"error": f"Failed to set parameter {name}: {error_msg}"}
+
+
+@mcp.tool(
+    description=(
+        "Check if a ROS parameter exists. Works only with ROS 2.\nExample:\nhas_param('/turtlesim:background_b')"
+    )
+)
+def has_parameter(name: str) -> dict:
+    """
+    Check if a ROS parameter exists. Works only with ROS 2.
+
+    Args:
+        name (str): The parameter name (e.g., '/turtlesim:background_b')
+
+    Returns:
+        dict: Contains existence status and metadata, or error message if failed.
+    """
+    if not name or not name.strip():
+        return {"error": "Parameter name cannot be empty"}
+
+    message = {
+        "op": "call_service",
+        "service": "/rosapi/has_param",
+        "type": "rosapi/HasParam",
+        "args": {"name": name},
+        "id": f"has_param_{name.replace('/', '_').replace(':', '_')}",
+    }
+
+    with ws_manager:
+        response = ws_manager.request(message)
+
+    if response and "values" in response:
+        result_data = response["values"]
+        return {
+            "name": name,
+            "exists": result_data.get("exists", False),
+            "successful": result_data.get("successful", False),
+            "reason": result_data.get("reason", ""),
+        }
+    elif response and "result" in response and response["result"]:
+        result_data = response["result"]
+        return {
+            "name": name,
+            "exists": result_data.get("exists", False),
+            "successful": result_data.get("successful", False),
+            "reason": result_data.get("reason", ""),
+        }
+    else:
+        error_msg = (
+            response.get("values", {}).get("message", "Service call failed")
+            if response
+            else "No response"
+        )
+        return {"error": f"Failed to check parameter {name}: {error_msg}"}
+
+
+@mcp.tool(
+    description=(
+        "Delete a ROS parameter. Works only with ROS 2.\nExample:\ndelete_param('/turtlesim:background_b')"
+    )
+)
+def delete_parameter(name: str) -> dict:
+    """
+    Delete a ROS parameter. Works only with ROS 2.
+
+    Args:
+        name (str): The parameter name (e.g., '/turtlesim:background_b')
+
+    Returns:
+        dict: Contains success status and metadata, or error message if failed.
+    """
+    if not name or not name.strip():
+        return {"error": "Parameter name cannot be empty"}
+
+    message = {
+        "op": "call_service",
+        "service": "/rosapi/delete_param",
+        "type": "rosapi/DeleteParam",
+        "args": {"name": name},
+        "id": f"delete_param_{name.replace('/', '_').replace(':', '_')}",
+    }
+
+    with ws_manager:
+        response = ws_manager.request(message)
+
+    if response and "values" in response:
+        result_data = response["values"]
+        return {
+            "name": name,
+            "successful": result_data.get("successful", False),
+            "reason": result_data.get("reason", ""),
+        }
+    elif response and "result" in response and response["result"]:
+        result_data = response["result"]
+        return {
+            "name": name,
+            "successful": result_data.get("successful", False),
+            "reason": result_data.get("reason", ""),
+        }
+    else:
+        error_msg = (
+            response.get("values", {}).get("message", "Service call failed")
+            if response
+            else "No response"
+        )
+        return {"error": f"Failed to delete parameter {name}: {error_msg}"}
+
+
+@mcp.tool(
+    description=(
+        "Get list of all ROS parameter names. Works only with ROS 2.\nExample:\nget_parameters()"
+    )
+)
+def get_parameters() -> dict:
+    """
+    Get list of all ROS parameter names. Works only with ROS 2.
+
+    Returns:
+        dict: Contains list of all parameter names, or error message if failed.
+    """
+    message = {
+        "op": "call_service",
+        "service": "/rosapi/get_param_names",
+        "type": "rosapi/GetParamNames",
+        "args": {},
+        "id": "get_parameters_request_1",
+    }
+
+    with ws_manager:
+        response = ws_manager.request(message)
+
+    if response and "values" in response:
+        names = response["values"].get("names", [])
+        return {"parameters": names, "parameter_count": len(names)}
+    elif response and "result" in response and response["result"]:
+        result_data = response["result"]
+        if isinstance(result_data, dict):
+            names = result_data.get("names", [])
+        else:
+            names = []
+        return {"parameters": names, "parameter_count": len(names)}
+    else:
+        error_msg = (
+            response.get("values", {}).get("message", "Service call failed")
+            if response
+            else "No response"
+        )
+        return {"error": f"Failed to get parameter names: {error_msg}"}
+
+
+@mcp.tool(
+    description=(
+        "Get comprehensive information about all ROS parameters including values and metadata.\nWorks only with ROS 2.\n"
+        "Example:\n"
+        "inspect_all_parameters()"
+    )
+)
+def inspect_all_parameters() -> dict:
+    """
+    Get comprehensive information about all ROS parameters including values and metadata. Works only with ROS 2.
+
+    Returns:
+        dict: Contains detailed information about all parameters,
+            including parameter names, values, and metadata.
+    """
+    # First get all parameters
+    parameters_message = {
+        "op": "call_service",
+        "service": "/rosapi/get_param_names",
+        "type": "rosapi/GetParamNames",
+        "args": {},
+        "id": "inspect_all_parameters_request_1",
+    }
+
+    with ws_manager:
+        parameters_response = ws_manager.request(parameters_message)
+
+        if not parameters_response or "values" not in parameters_response:
+            return {"error": "Failed to get parameters list"}
+
+        parameters = parameters_response["values"].get("names", [])
+        parameter_details = {}
+
+        # Get details for each parameter
+        parameter_errors = []
+        for param_name in parameters:
+            # Get parameter value
+            value_message = {
+                "op": "call_service",
+                "service": "/rosapi/get_param",
+                "type": "rosapi/GetParam",
+                "args": {"name": param_name},
+                "id": f"get_param_{param_name.replace('/', '_').replace(':', '_')}",
+            }
+
+            value_response = ws_manager.request(value_message)
+            param_value = ""
+            param_successful = False
+            if value_response and "values" in value_response:
+                value_data = value_response["values"]
+                param_value = value_data.get("value", "")
+                param_successful = value_data.get("successful", False)
+            elif value_response and "result" in value_response and value_response["result"]:
+                value_data = value_response["result"]
+                param_value = value_data.get("value", "")
+                param_successful = value_data.get("successful", False)
+            elif value_response and "error" in value_response:
+                parameter_errors.append(f"Parameter {param_name}: {value_response['error']}")
+
+            # Get parameter type (using describe_parameters service)
+            type_message = {
+                "op": "call_service",
+                "service": "/rosapi/describe_parameters",
+                "type": "rcl_interfaces/DescribeParameters",
+                "args": {"names": [param_name]},
+                "id": f"describe_param_{param_name.replace('/', '_').replace(':', '_')}",
+            }
+
+            type_response = ws_manager.request(type_message)
+            param_type = "unknown"
+
+            # Handle different response formats for parameter type detection
+            if type_response and isinstance(type_response, dict):
+                if "values" in type_response:
+                    result_data = type_response["values"]
+                    if isinstance(result_data, dict):
+                        descriptors = result_data.get("descriptors", [])
+                        if descriptors and len(descriptors) > 0:
+                            param_type = descriptors[0].get("type", "unknown")
+                elif "result" in type_response and type_response["result"]:
+                    result_data = type_response["result"]
+                    if isinstance(result_data, dict):
+                        descriptors = result_data.get("descriptors", [])
+                        if descriptors and len(descriptors) > 0:
+                            param_type = descriptors[0].get("type", "unknown")
+                elif "error" in type_response:
+                    parameter_errors.append(
+                        f"Parameter {param_name} type: {type_response['error']}"
+                    )
+
+            # Fallback: Try to infer type from value
+            if param_type == "unknown" and param_value:
+                try:
+                    # Remove quotes for type checking
+                    clean_value = param_value.strip('"')
+
+                    # Try to parse as different types
+                    if clean_value.lower() in ["true", "false"]:
+                        param_type = "bool"
+                    elif clean_value.isdigit() or (
+                        clean_value.startswith("-") and clean_value[1:].isdigit()
+                    ):
+                        param_type = "int"
+                    elif (
+                        "." in clean_value
+                        and clean_value.replace(".", "").replace("-", "").isdigit()
+                    ):
+                        param_type = "float"
+                    elif param_value.startswith('"') and param_value.endswith('"'):
+                        param_type = "string"
+                    elif clean_value == "":
+                        param_type = "string"
+                    else:
+                        param_type = "string"
+                except Exception:
+                    param_type = "string"
+
+            parameter_details[param_name] = {
+                "value": param_value,
+                "type": param_type,
+                "exists": param_successful,
+            }
+
+        return {
+            "total_parameters": len(parameters),
+            "parameters": parameter_details,
+            "parameter_errors": parameter_errors,  # Include any errors encountered during inspection
+        }
+
+
+@mcp.tool(
+    description=(
+        "Get comprehensive details about a specific ROS parameter including value, type, and metadata. Works only with ROS 2.\n    "
+        "Example:\n"
+        "get_parameter_details('/turtlesim:background_r')"
+    )
+)
+def get_parameter_details(name: str) -> dict:
+    """
+    Get comprehensive details about a specific ROS parameter including value, type, and metadata. Works only with ROS 2.
+
+    Args:
+        name (str): The parameter name (e.g., '/turtlesim:background_r')
+
+    Returns:
+        dict: Contains detailed parameter information or error details.
+    """
+    # Validate input
+    if not name or not name.strip():
+        return {"error": "Parameter name cannot be empty"}
+
+    # Get parameter value
+    value_message = {
+        "op": "call_service",
+        "service": "/rosapi/get_param",
+        "type": "rosapi/GetParam",
+        "args": {"name": name},
+        "id": f"get_param_details_{name.replace('/', '_').replace(':', '_')}",
+    }
+
+    with ws_manager:
+        value_response = ws_manager.request(value_message)
+
+    if not value_response or "values" not in value_response:
+        return {"error": f"Failed to get parameter {name}"}
+
+    value_data = value_response["values"]
+    param_value = value_data.get("value", "")
+    param_successful = value_data.get("successful", False)
+
+    if not param_successful:
+        return {"error": f"Parameter {name} does not exist"}
+
+    # Get parameter type
+    type_message = {
+        "op": "call_service",
+        "service": "/rosapi/describe_parameters",
+        "type": "rcl_interfaces/DescribeParameters",
+        "args": {"names": [name]},
+        "id": f"describe_param_details_{name.replace('/', '_').replace(':', '_')}",
+    }
+
+    with ws_manager:
+        type_response = ws_manager.request(type_message)
+
+    param_type = "unknown"
+    param_description = ""
+
+    if type_response and isinstance(type_response, dict):
+        if "values" in type_response:
+            result_data = type_response["values"]
+            if isinstance(result_data, dict):
+                descriptors = result_data.get("descriptors", [])
+                if descriptors and len(descriptors) > 0:
+                    descriptor = descriptors[0]
+                    param_type = descriptor.get("type", "unknown")
+                    param_description = descriptor.get("description", "")
+        elif "result" in type_response and type_response["result"]:
+            result_data = type_response["result"]
+            if isinstance(result_data, dict):
+                descriptors = result_data.get("descriptors", [])
+                if descriptors and len(descriptors) > 0:
+                    descriptor = descriptors[0]
+                    param_type = descriptor.get("type", "unknown")
+                    param_description = descriptor.get("description", "")
+
+    # Fallback: Try to infer type from value
+    if param_type == "unknown" and param_value:
+        try:
+            clean_value = param_value.strip('"')
+            if clean_value.lower() in ["true", "false"]:
+                param_type = "bool"
+            elif clean_value.isdigit() or (
+                clean_value.startswith("-") and clean_value[1:].isdigit()
+            ):
+                param_type = "int"
+            elif "." in clean_value and clean_value.replace(".", "").replace("-", "").isdigit():
+                param_type = "float"
+            elif param_value.startswith('"') and param_value.endswith('"'):
+                param_type = "string"
+            elif clean_value == "":
+                param_type = "string"
+            else:
+                param_type = "string"
+        except Exception:
+            param_type = "string"
+
+    return {
+        "name": name,
+        "value": param_value,
+        "type": param_type,
+        "exists": param_successful,
+        "description": param_description,
+        "node": name.split(":")[0] if ":" in name else "",
+        "parameter": name.split(":")[1] if ":" in name else name,
+    }
 
 
 @mcp.tool(

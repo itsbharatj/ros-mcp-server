@@ -56,7 +56,7 @@ If the above steps have been executed successfully, press the Connect button on 
 Copy the USD file of the LIMO robot created for this example to Isaac Sim.
 
 ```bash
-cd /<ABSOLUTE_PATH>/ros-mcp-server/examples/limo/isaac_sim/usd/
+cd /<ABSOLUTE_PATH>/ros-mcp-server/examples/3_limo_mobile_robot/isaac_sim/usd/
 docker exec <container_name> mkdir -p /example # default container_name : isaac-sim
 docker cp ./limo_example.usd <container_name>:/example/limo_example.usd
 ```

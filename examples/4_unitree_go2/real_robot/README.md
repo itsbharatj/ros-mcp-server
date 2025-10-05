@@ -114,7 +114,7 @@ By default, the Unitree GO2 publishes camera data through a custom topic called 
 
 - **move the script to the Unitree GO2** (User PC side)
     ```bash
-    cd /<ABSOLUTE_PATH>/ros-mcp-server/examples/unitree_go2/real_robot/scripts
+    cd /<ABSOLUTE_PATH>/ros-mcp-server/examples/4_unitree_go2/real_robot/scripts
     scp ./camera_bridge.py unitree@192.168.123.18:/home/unitree/cyclonedds_ws/src/image_process/
     ```
 - **check the script** (Unitree GO2 side)
