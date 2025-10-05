@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from pydantic import Field
 from pydantic import create_model
 
+
 def truncate_session_id(session_id: str, max_length: int = 10) -> str:
     """
     Truncate a session ID for logging purposes.
@@ -55,7 +56,7 @@ def model_from_mcp_schema(name: str, mcp_input_schema: dict) -> type[BaseModel]:
     schema_dict = {}
 
     def _generate_valid_classname(class_name: str):
-        return class_name.replace('_', ' ').replace('-', ' ').title().replace(' ', '')
+        return class_name.replace("_", " ").replace("-", " ").title().replace(" ", "")
 
     def _generate_field(field_name: str, field_properties: dict[str, Any]) -> tuple:
         json_type = field_properties.get("type", "string")
@@ -73,7 +74,9 @@ def model_from_mcp_schema(name: str, mcp_input_schema: dict) -> type[BaseModel]:
                 # CRITICAL FIX: Check if properties exist before creating nested model
                 if "properties" in item_properties:
                     # Object with defined structure - create nested model
-                    item_type = model_from_mcp_schema(name=field_name, mcp_input_schema=item_properties)
+                    item_type = model_from_mcp_schema(
+                        name=field_name, mcp_input_schema=item_properties
+                    )
                 else:
                     # Generic object without properties - use dict[str, Any]
                     item_type = dict[str, Any]
@@ -84,13 +87,13 @@ def model_from_mcp_schema(name: str, mcp_input_schema: dict) -> type[BaseModel]:
             # Union types (e.g., ["number", "null"])
             field_type = None
             has_null = "null" in json_type
-            
+
             for t in json_type:
                 if t == "null":
                     continue
                 mapped = _type_map.get(t, Any)
                 field_type = mapped if field_type is None else field_type | mapped
-            
+
             # If field is not required and has null, make it truly optional
             if field_name not in required_fields and has_null:
                 # Optional field - None is the default
@@ -108,10 +111,9 @@ def model_from_mcp_schema(name: str, mcp_input_schema: dict) -> type[BaseModel]:
                     default_value = field_properties.get("default", ...)
                 else:
                     default_value = field_properties.get("default", None)
-            
+
             return field_type, Field(
-                default=default_value,
-                description=field_properties.get("description", "")
+                default=default_value, description=field_properties.get("description", "")
             )
         else:
             field_type = _type_map.get(json_type, Any)
@@ -135,6 +137,8 @@ def model_from_mcp_schema(name: str, mcp_input_schema: dict) -> type[BaseModel]:
         return field_type, Field(default=default_value, description=description)
 
     for field_name, field_props in properties.items():
-        schema_dict[field_name] = _generate_field(field_name=field_name, field_properties=field_props)
-    
+        schema_dict[field_name] = _generate_field(
+            field_name=field_name, field_properties=field_props
+        )
+
     return create_model(f"{_generate_valid_classname(name)}InputSchema", **schema_dict)
