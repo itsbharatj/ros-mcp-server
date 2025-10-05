@@ -16,9 +16,7 @@
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel
-from pydantic import Field
-from pydantic import create_model
+from pydantic import BaseModel, Field, create_model
 
 
 def truncate_session_id(session_id: str, max_length: int = 10) -> str:

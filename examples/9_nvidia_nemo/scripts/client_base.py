@@ -17,31 +17,25 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from abc import ABC
-from abc import abstractmethod
-from collections.abc import AsyncGenerator
-from collections.abc import Callable
-from contextlib import AsyncExitStack
-from contextlib import asynccontextmanager
+from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator, Callable
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import timedelta
 
 import anyio
 import httpx
-
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-from mcp.client.stdio import StdioServerParameters
-from mcp.client.stdio import stdio_client
+from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamablehttp_client
-from mcp.types import TextContent, ImageContent
-from nat.authentication.interfaces import AuthenticatedContext
-from nat.authentication.interfaces import AuthFlowType
-from nat.authentication.interfaces import AuthProviderBase
-from nat.plugins.mcp.exception_handler import convert_to_mcp_error
-from nat.plugins.mcp.exception_handler import format_mcp_error
-from nat.plugins.mcp.exception_handler import mcp_exception_handler
-from nat.plugins.mcp.exceptions import MCPError
-from nat.plugins.mcp.exceptions import MCPToolNotFoundError
+from mcp.types import ImageContent, TextContent
+from nat.authentication.interfaces import AuthenticatedContext, AuthFlowType, AuthProviderBase
+from nat.plugins.mcp.exception_handler import (
+    convert_to_mcp_error,
+    format_mcp_error,
+    mcp_exception_handler,
+)
+from nat.plugins.mcp.exceptions import MCPError, MCPToolNotFoundError
 from nat.plugins.mcp.utils import model_from_mcp_schema
 from nat.utils.type_utils import override
 
@@ -703,6 +697,7 @@ class MCPToolClient:
         Analyze the image using NVIDIA's API and return the description.
         """
         import os
+
         import aiohttp
 
         api_key = os.getenv("NVIDIA_API_KEY")
