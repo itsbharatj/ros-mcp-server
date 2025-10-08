@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/bharatjain/Desktop",
+        "/Users/bharatjain/Downloads"
+      ]
+    },
+    "ros-mcp-server": {
+      "command": "/Users/bharatjain/.local/bin/uv",
+      "args": [
+        "--directory",
+        "/Users/bharatjain/Desktop/ros-mcp-server",
+        "run",
+        "server.py"
+      ]
+    }
+  }
+}
