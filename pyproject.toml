@@ -20,6 +20,8 @@ dependencies = [
     "opencv-python>=4.11.0.86",
     "pillow>=11.3.0",
     "websocket-client>=1.8.0",
+    "py-trees>=2.2.3",
+    "pyyaml>=6.0.1",
 ]
 
 [project.optional-dependencies]

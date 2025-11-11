@@ -15,6 +15,7 @@ from PIL import Image as PILImage
 from utils.config_utils import get_verified_robot_spec_util, get_verified_robots_list_util
 from utils.network_utils import ping_ip_and_port
 from utils.websocket_manager import WebSocketManager, parse_input
+from utils.behavior_tree_manager import BehaviorTreeManager
 
 # ROS bridge connection settings
 ROSBRIDGE_IP = "127.0.0.1"  # Default is localhost. Replace with your local IPor set using the LLM.
@@ -39,7 +40,86 @@ MCP_PORT = int(
 mcp = FastMCP("ros-mcp-server")
 ws_manager = WebSocketManager(
     ROSBRIDGE_IP, ROSBRIDGE_PORT, default_timeout=5.0
-)  # Increased default timeout for ROS operations
+)
+
+
+def _sync_send_action_goal(
+    action_name: str, action_type: str, goal: dict, timeout: float = 10.0
+) -> dict:
+    message = {
+        "op": "send_action_goal",
+        "id": f"goal_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}",
+        "action": action_name,
+        "action_type": action_type,
+        "args": goal,
+        "feedback": False,
+    }
+
+    with ws_manager:
+        send_error = ws_manager.send(message)
+        if send_error:
+            return {"error": f"Failed to send action goal: {send_error}", "success": False}
+
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            elapsed_time = time.time() - start_time
+            response = ws_manager.receive(timeout=timeout - elapsed_time)
+
+            if response:
+                try:
+                    msg_data = json.loads(response)
+                    if msg_data.get("op") == "action_result":
+                        return {
+                            "action": action_name,
+                            "action_type": action_type,
+                            "success": True,
+                            "goal_id": message["id"],
+                            "status": msg_data.get("status", "unknown"),
+                            "result": msg_data.get("values", {}),
+                        }
+                except json.JSONDecodeError:
+                    continue
+
+        return {
+            "error": f"Action timeout after {timeout}s",
+            "success": False,
+            "action": action_name,
+        }
+
+
+def _sync_call_service(
+    service_name: str, service_type: str, request: dict, timeout: float = 5.0
+) -> dict:
+    message = {
+        "op": "call_service",
+        "service": service_name,
+        "type": service_type,
+        "args": request,
+        "id": f"service_{uuid.uuid4().hex[:8]}",
+    }
+
+    with ws_manager:
+        send_error = ws_manager.send(message)
+        if send_error:
+            return {"error": f"Failed to call service: {send_error}"}
+
+        response = ws_manager.receive(timeout=timeout)
+
+        if not response:
+            return {"error": f"Service call timeout after {timeout}s"}
+
+        try:
+            msg_data = json.loads(response)
+            if "values" in msg_data:
+                return msg_data["values"]
+            return msg_data
+        except json.JSONDecodeError:
+            return {"error": "Failed to parse service response"}
+
+
+bt_manager = BehaviorTreeManager(
+    send_action_fn=_sync_send_action_goal, call_service_fn=_sync_call_service
+)
 
 
 def convert_expects_image_hint(expects_image: str) -> bool | None:
@@ -2924,6 +3004,162 @@ def cancel_action_goal(action_name: str, goal_id: str) -> dict:
         "success": True,
         "note": "Cancel request sent successfully. Action may still be executing.",
     }
+
+
+## ############################################################################################## ##
+##
+##                       BEHAVIOR TREES
+##
+## ############################################################################################## ##
+
+
+@mcp.tool(
+    description=(
+        "Create a behavior tree from JSON or XML definition. The tree can orchestrate multiple ROS actions and services.\n"
+        "Example JSON format:\n"
+        "{\n"
+        '  "type": "sequence",\n'
+        '  "name": "PickAndPlace",\n'
+        '  "children": [\n'
+        '    {"type": "action", "name": "Navigate", "action_name": "/navigate", "action_type": "nav2_msgs/action/NavigateToPose", "goal": {"pose": {...}}},\n'
+        '    {"type": "action", "name": "Pick", "action_name": "/pick", "action_type": "my_msgs/action/PickObject", "goal": {"object_id": "cube"}},\n'
+        '    {"type": "delay", "name": "Wait", "duration": 2.0},\n'
+        '    {"type": "action", "name": "Place", "action_name": "/place", "action_type": "my_msgs/action/PlaceObject", "goal": {"location": {...}}}\n'
+        "  ]\n"
+        "}\n"
+        "\n"
+        "Example:\n"
+        "create_behavior_tree(tree_definition=json.dumps(tree_dict), format='json')"
+    )
+)
+def create_behavior_tree(
+    tree_definition: str, format: str = "json", context: dict = None
+) -> dict:
+    """
+    Create a behavior tree from JSON or XML definition.
+
+    The behavior tree can orchestrate multiple ROS actions, services, and delays in a structured manner.
+    Supported composite nodes: sequence, selector, parallel
+    Supported leaf nodes: action (ROS action), service (ROS service), delay (timed wait)
+
+    Args:
+        tree_definition (str): The tree definition as JSON string or XML string
+        format (str): Format of the tree definition - 'json' or 'xml' (default: 'json')
+        context (dict): Optional context data to associate with the tree
+
+    Returns:
+        dict: Contains tree_id and creation status
+    """
+    if not tree_definition or not tree_definition.strip():
+        return {"error": "Tree definition cannot be empty"}
+
+    try:
+        tree_id = bt_manager.create_tree(tree_definition, format=format, context=context)
+        return {
+            "success": True,
+            "tree_id": tree_id,
+            "message": f"Behavior tree created with ID: {tree_id}",
+            "format": format,
+        }
+    except json.JSONDecodeError as e:
+        return {"error": f"Invalid JSON format: {str(e)}"}
+    except ET.ParseError as e:
+        return {"error": f"Invalid XML format: {str(e)}"}
+    except ValueError as e:
+        return {"error": f"Tree definition error: {str(e)}"}
+    except Exception as e:
+        return {"error": f"Failed to create behavior tree: {str(e)}"}
+
+
+@mcp.tool(
+    description=(
+        "Execute a previously created behavior tree. The tree will tick at the specified rate until completion or timeout.\n"
+        "Example:\n"
+        "execute_behavior_tree(tree_id='bt_a1b2c3d4', tick_rate=10.0)"
+    )
+)
+async def execute_behavior_tree(
+    tree_id: str, tick_rate: float = 10.0, ctx: Context | None = None
+) -> dict:
+    """
+    Execute a previously created behavior tree.
+
+    The tree will tick at the specified rate until it completes (success/failure) or times out.
+    Progress updates are streamed back during execution.
+
+    Args:
+        tree_id (str): The ID of the tree to execute (from create_behavior_tree)
+        tick_rate (float): Ticks per second (default: 10.0)
+
+    Returns:
+        dict: Execution results including final status, duration, and tick count
+    """
+    if not tree_id or not tree_id.strip():
+        return {"error": "Tree ID cannot be empty"}
+
+    if ctx:
+        await ctx.report_progress(0, None, f"Starting execution of behavior tree: {tree_id}")
+
+    try:
+        result = await bt_manager.execute_tree_async(tree_id, tick_rate=tick_rate)
+
+        if ctx:
+            status = result.get("final_status", "UNKNOWN")
+            duration = result.get("duration", 0)
+            await ctx.report_progress(
+                100,
+                100,
+                f"Behavior tree completed with status: {status} in {duration:.2f}s",
+            )
+
+        return result
+    except Exception as e:
+        return {"error": f"Failed to execute behavior tree: {str(e)}"}
+
+
+@mcp.tool(
+    description=(
+        "Get the current status and recent activity of a behavior tree.\n"
+        "Example:\n"
+        "get_behavior_tree_status(tree_id='bt_a1b2c3d4')"
+    )
+)
+def get_behavior_tree_status(tree_id: str) -> dict:
+    """
+    Get the current status and recent activity of a behavior tree.
+
+    Args:
+        tree_id (str): The ID of the tree to query
+
+    Returns:
+        dict: Status information including current state, recent snapshots, and context
+    """
+    if not tree_id or not tree_id.strip():
+        return {"error": "Tree ID cannot be empty"}
+
+    try:
+        return bt_manager.get_tree_status(tree_id)
+    except Exception as e:
+        return {"error": f"Failed to get tree status: {str(e)}"}
+
+@mcp.tool(
+    description=(
+        "List all behavior trees currently managed by the system.\n"
+        "Example:\n"
+        "list_behavior_trees()"
+    )
+)
+def list_behavior_trees() -> dict:
+    """
+    List all behavior trees currently managed by the system.
+
+    Returns:
+        dict: List of trees with their IDs, status, and metadata
+    """
+    try:
+        return bt_manager.list_trees()
+    except Exception as e:
+        return {"error": f"Failed to list trees: {str(e)}"}
 
 
 ## ############################################################################################## ##
